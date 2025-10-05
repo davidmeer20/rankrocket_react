@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import { createPageUrl } from './components/utils.jsx';
 import PageList from './components/analysis/PageList';
 import PageDetails from './components/analysis/PageDetails';
@@ -40,27 +40,77 @@ const generateRandomIssues = () => {
   return shuffled.slice(0, issueCount);
 };
 
-// Generate 200 pages
-const generatePagesData = () => {
-  const categories = ['homepage', 'politics', 'sports', 'technology', 'business', 'health', 'entertainment', 'world', 'science', 'lifestyle'];
-  const pages = [];
-
-  for (let i = 1; i <= 200; i++) {
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const healthScore = Math.floor(Math.random() * 100);
-    const importanceScore = Math.floor(Math.random() * 100);
+// Generate pages data using real URLs and issues from sample.json
+const generatePagesData = async () => {
+  try {
+    // Fetch the sample.json data
+    const response = await fetch('/sample.json');
+    const sampleData = await response.json();
     
-    pages.push({
-      id: i,
-      url: `/${category}/${i === 1 ? 'homepage' : `article-${i}`}`,
-      title: `${category.charAt(0).toUpperCase() + category.slice(1)} Article ${i} - ${i === 1 ? 'Latest News and Updates' : 'Breaking News Coverage'}`,
-      healthScore,
-      importanceScore,
-      issues: generateRandomIssues()
+    // Extract URLs and create pages data
+    const pages = sampleData.map((item, index) => {
+      const healthScore = Math.floor(Math.random() * 100);
+      const importanceScore = Math.floor(Math.random() * 100);
+      
+      // Generate a title from the URL
+      const url = item.url;
+      const urlPath = url.replace(/^https?:\/\/[^/]+/, ''); // Remove domain
+      
+      let title;
+      if (urlPath === '/' || urlPath === '' || urlPath === '/#') {
+        title = 'Homepage';
+      } else {
+        // Clean up the URL path to create a readable title
+        title = urlPath
+          .split('/')
+          .filter(segment => segment && segment !== '#' && segment !== 'back')
+          .map(segment => {
+            // Replace hyphens and handle special cases
+            return segment
+              .replace(/-/g, ' ')
+              .replace(/\b\w/g, l => l.toUpperCase())
+              .replace(/\?.*$/, ''); // Remove query parameters
+          })
+          .join(' › ');
+        
+        // If title is empty or too generic, use a fallback
+        if (!title || title.length < 3) {
+          title = 'Page';
+        }
+      }
+      
+      // Use real issues from the sample data
+      const realIssues = item.issues || [];
+      
+      return {
+        id: index + 1,
+        url: urlPath || '/',
+        fullUrl: url,
+        title: title,
+        healthScore,
+        importanceScore,
+        issues: realIssues
+      };
     });
-  }
 
-  return pages;
+    console.log(`Generated ${pages.length} pages from sample.json`);
+    return pages;
+  } catch (error) {
+    console.error('Error loading sample.json:', error);
+    
+    // Fallback to a few default pages if sample.json fails to load
+    return [
+      {
+        id: 1,
+        url: '/',
+        fullUrl: 'https://example.com/',
+        title: 'Homepage',
+        healthScore: Math.floor(Math.random() * 100),
+        importanceScore: Math.floor(Math.random() * 100),
+        issues: []
+      }
+    ];
+  }
 };
 
 const styles = `
@@ -249,10 +299,27 @@ export default function AnalyzeByPages() {
   const [filterIssues, setFilterIssues] = useState('all');
   const [selectedPageId, setSelectedPageId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [allPagesData, setAllPagesData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const pagesPerPage = 10;
   
-  // Using useMemo to prevent re-generation on every render
-  const allPagesData = useMemo(() => generatePagesData(), []);
+  // Load pages data on component mount
+  useEffect(() => {
+    const loadPages = async () => {
+      setIsLoading(true);
+      try {
+        const pagesData = await generatePagesData();
+        setAllPagesData(pagesData);
+      } catch (error) {
+        console.error('Error loading pages:', error);
+        setAllPagesData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPages();
+  }, []);
 
   const filteredPages = useMemo(() => {
     const pages = allPagesData.filter(page => {
@@ -302,6 +369,38 @@ export default function AnalyzeByPages() {
       setCurrentPage(pageNumber);
     }
   };
+
+  // Show loading state while data is being fetched
+  if (isLoading) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="analyze-container">
+          <div className="analyze-content">
+            <div className="header">
+              <div className="header-left">
+                <Link to={createPageUrl('StatsOverview')} className="back-button">
+                  <ArrowLeft size={16} />
+                  Dashboard
+                </Link>
+                <h1 className="page-title">Page Analysis</h1>
+              </div>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              minHeight: '400px',
+              color: '#64748b',
+              fontSize: '1.125rem'
+            }}>
+              Loading pages from sample data...
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

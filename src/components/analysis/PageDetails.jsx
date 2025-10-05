@@ -204,12 +204,56 @@ const styles = `
 .issue-item.warning { background-color: #fffbeb; border-color: #f59e0b; }
 .issue-item.info { background-color: #f0f9ff; border-color: #3b82f6; }
 
-
-.issue-text {
-  font-size: 0.875rem;
-  color: #374151;
+.issue-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
+
+.issue-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.issue-type {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.severity-badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.severity-badge.severity-high {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.severity-badge.severity-medium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.severity-badge.severity-low {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.issue-explanation {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
 
 .fix-button {
   background-color: #4f46e5;
@@ -290,9 +334,12 @@ const getHealthClass = (score) => {
   return 'warning';
 };
 
-// Helper to categorize issues from their text
-const getIssueCategory = (issueText) => {
+// Helper to categorize issues from their type or text
+const getIssueCategory = (issue) => {
+  // Handle different issue structures
+  const issueText = issue.type || issue.text || issue.explanation || '';
   const lowerText = issueText.toLowerCase();
+  
   if (['meta', 'title', 'canonical', 'graph', 'social', 'tags', 'description'].some(kw => lowerText.includes(kw))) return 'Meta & Tags';
   if (['speed', 'optimized', 'size', 'ratio', 'compress'].some(kw => lowerText.includes(kw))) return 'Performance';
   if (['alt text', 'h1', 'content', 'keyword', 'breadcrumb', 'heading', 'image', 'readability'].some(kw => lowerText.includes(kw))) return 'Content & SEO';
@@ -317,22 +364,24 @@ export default function PageDetails({ selectedPage, allPages }) {
 
   const allSiteIssues = allPages.flatMap(p => p.issues);
 
-  // Data for Severity Pie Chart
+  // Data for Severity Pie Chart - Updated to use real severity values from sample.json
+  // Filter out issues with null/undefined severity
+  const issuesWithSeverity = allSiteIssues.filter(i => i.severity && i.severity.trim() !== '');
   const severityData = [
-    { name: 'Critical', value: allSiteIssues.filter(i => i.type === 'critical').length },
-    { name: 'Warning', value: allSiteIssues.filter(i => i.type === 'warning').length },
-    { name: 'Info', value: allSiteIssues.filter(i => i.type === 'info').length },
+    { name: 'High', value: issuesWithSeverity.filter(i => i.severity.toUpperCase() === 'HIGH').length },
+    { name: 'Medium', value: issuesWithSeverity.filter(i => i.severity.toUpperCase() === 'MEDIUM').length },
+    { name: 'Low', value: issuesWithSeverity.filter(i => i.severity.toUpperCase() === 'LOW').length },
   ].filter(d => d.value > 0);
 
   const SEVERITY_COLORS = {
-      'Critical': '#ef4444',
-      'Warning': '#f59e0b',
-      'Info': '#3b82f6'
+      'High': '#ef4444',
+      'Medium': '#f59e0b',
+      'Low': '#3b82f6'
   };
 
   // Data for Category Pie Chart
   const categoryCounts = allSiteIssues.reduce((acc, issue) => {
-      const category = getIssueCategory(issue.text);
+      const category = getIssueCategory(issue);
       acc[category] = (acc[category] || 0) + 1;
       return acc;
   }, {});
@@ -372,41 +421,61 @@ export default function PageDetails({ selectedPage, allPages }) {
               </div>
             </div>
 
-            {selectedPage.issues.length > 0 ? (
-              <div className="issues-section">
-                <div className="issues-header">
-                  <AlertTriangle size={20} className="text-amber-600" />
-                  <span className="issues-title">Issues Found</span>
-                  <span className="issues-count">{selectedPage.issues.length}</span>
+            {(() => {
+              const issuesWithSeverity = selectedPage.issues.filter(issue => issue.severity && issue.severity.trim() !== '');
+              return issuesWithSeverity.length > 0 ? (
+                <div className="issues-section">
+                  <div className="issues-header">
+                    <AlertTriangle size={20} className="text-amber-600" />
+                    <span className="issues-title">Issues Found</span>
+                    <span className="issues-count">{issuesWithSeverity.length}</span>
+                  </div>
+                  <div className="issues-list">
+                    {issuesWithSeverity.map((issue, index) => (
+                      <div key={index} className={`issue-item ${(issue.type || issue.severity || 'general').toLowerCase().replace(/\s+/g, '-')}`}>
+                        <div className="issue-content">
+                          <div className="issue-header">
+                            <span className="issue-type">{issue.type || 'General Issue'}</span>
+                            {issue.severity && (
+                              <span className={`severity-badge severity-${issue.severity.toLowerCase()}`}>
+                                {issue.severity}
+                              </span>
+                            )}
+                          </div>
+                          {issue.explanation && (
+                            <div className="issue-explanation">
+                              {issue.explanation}
+                            </div>
+                          )}
+                        </div>
+                        <button className="fix-button">Quick Fix</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="issues-list">
-                  {selectedPage.issues.map((issue, index) => (
-                    <div key={index} className={`issue-item ${issue.type}`}>
-                      <span className="issue-text">{issue.text}</span>
-                      <button className="fix-button">Quick Fix</button>
-                    </div>
-                  ))}
+              ) : (
+                <div className="no-issues-container">
+                  <CheckCircle size={24} className="mx-auto mb-2" />
+                  <h4>No Issues Found!</h4>
+                  <p>This page looks great from an SEO perspective.</p>
                 </div>
-              </div>
-            ) : (
-              <div className="no-issues-container">
-                <CheckCircle size={24} className="mx-auto mb-2" />
-                <h4>No Issues Found!</h4>
-                <p>This page looks great from an SEO perspective.</p>
-              </div>
-            )}
+              );
+            })()}
             
             <div className="actions-row">
               <button className="action-button">
                 <Eye size={16} />
                 View Full Report
               </button>
-              {selectedPage.issues.length > 0 && (
-                <button className="action-button primary">
-                  <Wrench size={16} />
-                  Fix All ({selectedPage.issues.length})
-                </button>
-              )}
+              {(() => {
+                const issuesWithSeverity = selectedPage.issues.filter(issue => issue.severity && issue.severity.trim() !== '');
+                return issuesWithSeverity.length > 0 && (
+                  <button className="action-button primary">
+                    <Wrench size={16} />
+                    Fix All ({issuesWithSeverity.length})
+                  </button>
+                );
+              })()}
             </div>
           </>
         )}
