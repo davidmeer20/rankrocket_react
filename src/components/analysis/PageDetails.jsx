@@ -1,6 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ExternalLink, Wrench, Eye, AlertTriangle, CheckCircle, PieChart as PieChartIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+// Component to handle text truncation with expand/collapse functionality
+const TruncatedText = ({ text, maxLength = 150 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!text || text.length <= maxLength) {
+    return <span className="explanation-text">{text}</span>;
+  }
+  
+  const truncatedText = text.substring(0, maxLength).trim();
+  
+  return (
+    <span className="explanation-text">
+      {isExpanded ? text : `${truncatedText}...`}
+      <span 
+        className="explanation-toggle"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? ' Show less' : ' Show more'}
+      </span>
+    </span>
+  );
+};
 
 const styles = `
 .details-container {
@@ -98,7 +121,7 @@ const styles = `
 }
 
 .score-label {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   margin-top: 0.25rem;
   opacity: 0.9;
@@ -125,7 +148,7 @@ const styles = `
 }
 
 .summary-title {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #1e293b;
 }
@@ -171,7 +194,7 @@ const styles = `
 }
 
 .issues-title {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: #374151;
 }
@@ -179,9 +202,9 @@ const styles = `
 .issues-count {
   background-color: #dc2626;
   color: white;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 0.125rem 0.625rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 9999px;
 }
 
@@ -220,13 +243,13 @@ const styles = `
 .issue-type {
   font-weight: 600;
   color: #374151;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .severity-badge {
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -248,10 +271,26 @@ const styles = `
 }
 
 .issue-explanation {
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   color: #6b7280;
-  line-height: 1.4;
-  margin-top: 0.25rem;
+  line-height: 1.5;
+  margin-top: 0.375rem;
+}
+
+.explanation-text {
+  display: block;
+}
+
+.explanation-toggle {
+  color: #4f46e5;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: underline;
+  margin-left: 0.25rem;
+}
+
+.explanation-toggle:hover {
+  color: #4338ca;
 }
 
 
@@ -260,8 +299,8 @@ const styles = `
   color: white;
   border: none;
   border-radius: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  font-size: 0.8125rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s ease;
@@ -292,7 +331,7 @@ const styles = `
   background-color: white;
   color: #374151;
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -444,7 +483,7 @@ export default function PageDetails({ selectedPage, allPages }) {
                           </div>
                           {issue.explanation && (
                             <div className="issue-explanation">
-                              {issue.explanation}
+                              <TruncatedText text={issue.explanation} maxLength={120} />
                             </div>
                           )}
                         </div>
